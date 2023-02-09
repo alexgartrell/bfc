@@ -5,14 +5,14 @@ pub fn kill_trivial_dead_loops(irs: &Vec<IR>) -> Vec<IR> {
     let mut changes = false;
 
     for ir in irs {
-	match ir {
-	    IR::Loop(_) if ! changes => {},
-	    IR::Add(_) | IR::Getch | IR::Putch  => {
-		changes = true;
-		ret.push(ir.clone());
-	    },
-	    ir => ret.push(ir.clone()),
-	}
+        match ir {
+            IR::Loop(_) if !changes => {}
+            IR::Add(_) | IR::Getch | IR::Putch => {
+                changes = true;
+                ret.push(ir.clone());
+            }
+            ir => ret.push(ir.clone()),
+        }
     }
     ret
 }
@@ -29,9 +29,9 @@ pub fn compress_adds(irs: &Vec<IR>) -> Vec<IR> {
         }
 
         if let Some(amt) = last_add {
-	    if amt != 0 {
-		ret.push(IR::Add(amt));
-	    }
+            if amt != 0 {
+                ret.push(IR::Add(amt));
+            }
             last_add = None;
         }
 
@@ -42,9 +42,9 @@ pub fn compress_adds(irs: &Vec<IR>) -> Vec<IR> {
         }
     }
     if let Some(amt) = last_add {
-	if amt != 0 {
+        if amt != 0 {
             ret.push(IR::Add(amt));
-	}
+        }
     }
 
     ret
@@ -62,9 +62,9 @@ pub fn compress_changes(irs: &Vec<IR>) -> Vec<IR> {
         }
 
         if let Some(amt) = last_change {
-	    if amt != 0 {
-		ret.push(IR::PtrChange(amt));
-	    }
+            if amt != 0 {
+                ret.push(IR::PtrChange(amt));
+            }
             last_change = None;
         }
 
@@ -75,9 +75,9 @@ pub fn compress_changes(irs: &Vec<IR>) -> Vec<IR> {
         }
     }
     if let Some(amt) = last_change {
-	if amt != 0 {
+        if amt != 0 {
             ret.push(IR::PtrChange(amt));
-	}
+        }
     }
 
     ret
