@@ -7,6 +7,10 @@ pub enum IR {
     Add(i8),
     Putch,
     Getch,
+
+    SimpleLoop(i8, Vec<IR>),
+    AddMul(i32, i8),
+    MovImm(i8),
 }
 
 #[derive(Debug)]

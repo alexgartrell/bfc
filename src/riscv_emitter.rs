@@ -79,6 +79,33 @@ impl RiscVEmitter {
                 println!("  j {}", l);
                 println!("{}_done:", l);
             }
+
+            IR::SimpleLoop(delta, nodes) => {
+                self.label_count += 1;
+                let l = format!("label_{}", self.label_count);
+                println!("{}:", l);
+                println!("  lb t0, (s1)");
+                println!("  beqz t0, {}_done", l);
+
+                for n in nodes {
+                    self.emit_inner(n, nostdlib);
+                }
+
+                self.emit_inner(&IR::Add(*delta), nostdlib);
+                println!("  j {}", l);
+                println!("{}_done:", l);
+            }
+            IR::AddMul(off, amt) => {
+                println!("  lb t0, (s1)");
+                println!("  muli t0, t0, {}", amt);
+                println!("  lb t1, {}(s1)", off);
+                println!("  add t0, t0, t1");
+                println!("  sb t0, (s1)");
+            }
+            IR::MovImm(imm) => {
+                println!("  li t0, {}", imm);
+                println!("  sb t0, (s1)");
+            }
         }
     }
 }

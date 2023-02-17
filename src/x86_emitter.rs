@@ -85,6 +85,32 @@ impl X86Emitter {
                 println!("  jmp {}", l);
                 println!("{}_done:", l);
             }
+            IR::SimpleLoop(delta, nodes) => {
+                self.label_count += 1;
+                let l = format!("label_{}", self.label_count);
+                println!("{}:", l);
+                println!("  movb (%rbx), %dil");
+                println!("  cmp $0, %dil");
+                println!("  je {}_done", l);
+
+                for n in nodes {
+                    self.emit_inner(n, nostdlib);
+                }
+
+                self.emit_inner(&IR::Add(*delta), nostdlib);
+                println!("  jmp {}", l);
+                println!("{}_done:", l);
+            }
+            IR::AddMul(off, amt) => {
+                println!("  movb (%rbx), %dil");
+                println!("  imul ${}, %rdi", amt);
+                println!("  movb {}(%rbx), %sil", off);
+                println!("  add %sil, %dil");
+                println!("  movb %dil, {}(%rbx)", off);
+            }
+            IR::MovImm(imm) => {
+                println!("  movb ${}, (%rbx)", imm);
+            }
         }
     }
 }
