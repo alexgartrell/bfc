@@ -1,4 +1,5 @@
 mod ast;
+mod c_emitter;
 mod ir;
 mod optimize;
 mod parser;
@@ -13,6 +14,7 @@ enum Arch {
     #[value(name = "x86_64")]
     X86_64,
     RiscV,
+    C,
 }
 
 #[derive(clap::Parser)]
@@ -40,5 +42,6 @@ fn main() {
     match args.arch {
         Arch::X86_64 => x86_emitter::X86Emitter::emit(&ir_prog, args.nostdlib),
         Arch::RiscV => riscv_emitter::RiscVEmitter::emit(&ir_prog, args.nostdlib),
+        Arch::C => c_emitter::CEmitter::emit(&ir_prog, args.nostdlib),
     }
 }
