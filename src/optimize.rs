@@ -1,7 +1,7 @@
 use crate::ir::{IRProgram, IR};
 use std::collections::HashMap;
 
-pub fn kill_trivial_dead_loops(irs: &Vec<IR>) -> Vec<IR> {
+fn kill_trivial_dead_loops(irs: &Vec<IR>) -> Vec<IR> {
     let mut ret = Vec::new();
     let mut changes = false;
 
@@ -18,7 +18,7 @@ pub fn kill_trivial_dead_loops(irs: &Vec<IR>) -> Vec<IR> {
     ret
 }
 
-pub fn compress_adds(irs: &Vec<IR>) -> Vec<IR> {
+fn compress_adds(irs: &Vec<IR>) -> Vec<IR> {
     let mut ret = Vec::new();
 
     let mut last_add = None;
@@ -51,7 +51,7 @@ pub fn compress_adds(irs: &Vec<IR>) -> Vec<IR> {
     ret
 }
 
-pub fn compress_changes(irs: &Vec<IR>) -> Vec<IR> {
+fn compress_changes(irs: &Vec<IR>) -> Vec<IR> {
     let mut ret = Vec::new();
 
     let mut last_change = None;
@@ -84,7 +84,7 @@ pub fn compress_changes(irs: &Vec<IR>) -> Vec<IR> {
     ret
 }
 
-pub fn simplify_loop(ins: &IR) -> IR {
+fn simplify_loop(ins: &IR) -> IR {
     let irs: Vec<_> = match ins {
         IR::Loop(i) => i.iter().map(simplify_loop).collect(),
         _ => return ins.clone(),
@@ -146,7 +146,7 @@ pub fn simplify_loop(ins: &IR) -> IR {
     }
 }
 
-pub fn compress_muls(irs: &Vec<IR>) -> Vec<IR> {
+fn compress_muls(irs: &Vec<IR>) -> Vec<IR> {
     let mut ret = Vec::new();
     'outer: for ir in irs {
         if let IR::SimpleLoop(delta, inner) = ir {
@@ -194,19 +194,4 @@ pub fn optimize(prog: &IRProgram) -> IRProgram {
     let irs = compress_changes(&irs);
     let irs = compress_muls(&irs);
     IRProgram(irs)
-}
-
-#[test]
-fn test() {
-    let i = IR::Loop(vec![
-        IR::PtrChange(8),
-        IR::Add(1),
-        IR::PtrChange(8),
-        IR::Add(-1),
-        IR::PtrChange(-16),
-        IR::Add(1),
-    ]);
-    dbg!(&i);
-    dbg!(simplify_loop(&i));
-    assert!(false);
 }
