@@ -108,8 +108,8 @@ impl X86Emitter {
                 println!("  add %sil, %dil");
                 println!("  movb %dil, {}(%rbx)", off);
             }
-            IR::MovImm(imm) => {
-                println!("  movb ${}, (%rbx)", imm);
+            IR::MovImm(off, imm) => {
+                println!("  movb ${}, {}(%rbx)", imm, off);
             }
         }
     }

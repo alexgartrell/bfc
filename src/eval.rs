@@ -52,8 +52,8 @@ pub fn eval(prog: &ir::IRProgram) {
                 IR::AddMul(off, amt) => {
                     state.write(*off, state.read(*off) + state.read(0) * amt);
                 }
-                IR::MovImm(val) => {
-                    state.write(0, *val);
+                IR::MovImm(off, val) => {
+                    state.write(*off, *val);
                 }
             }
         }

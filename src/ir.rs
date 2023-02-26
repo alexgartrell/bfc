@@ -10,7 +10,7 @@ pub enum IR {
 
     SimpleLoop(i8, Vec<IR>),
     AddMul(i32, i8),
-    MovImm(i8),
+    MovImm(i32, i8),
 }
 
 #[derive(Debug)]

@@ -102,9 +102,9 @@ impl RiscVEmitter {
                 println!("  add t0, t0, t1");
                 println!("  sb t0, (s1)");
             }
-            IR::MovImm(imm) => {
+            IR::MovImm(off, imm) => {
                 println!("  li t0, {}", imm);
-                println!("  sb t0, (s1)");
+                println!("  sb t0, {}(s1)", off);
             }
         }
     }

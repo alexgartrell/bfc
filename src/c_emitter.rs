@@ -48,8 +48,8 @@ impl CEmitter {
             IR::AddMul(off, amt) => {
                 println!("  arr[idx + {}] += (arr[idx] * {});", off, amt);
             }
-            IR::MovImm(imm) => {
-                println!("  arr[idx] = {};", imm);
+            IR::MovImm(off, imm) => {
+                println!("  arr[idx + {}] = {};", off, imm);
             }
         }
     }
