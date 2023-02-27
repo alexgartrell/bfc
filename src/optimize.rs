@@ -8,7 +8,7 @@ fn kill_trivial_dead_loops(irs: &Vec<IR>) -> Vec<IR> {
     for ir in irs {
         match ir {
             IR::Loop(_) if !changes => {}
-            IR::Add(_) | IR::Getch | IR::Putch => {
+            IR::Add(_) | IR::Getch(..) | IR::Putch(..) => {
                 changes = true;
                 ret.push(ir.clone());
             }
@@ -57,22 +57,30 @@ fn compress_changes(irs: &Vec<IR>) -> Vec<IR> {
     let mut last_change = None;
 
     for ir in irs {
-        if let IR::PtrChange(amt) = ir {
-            last_change = Some(last_change.map_or(*amt, |a: ir::Offset| a + *amt));
-            continue;
-        }
-
-        if let Some(amt) = last_change {
-            if amt != 0 {
-                ret.push(IR::PtrChange(amt));
+        match ir {
+            IR::PtrChange(amt) => {
+                last_change = Some(last_change.map_or(*amt, |a: ir::Offset| a + *amt));
             }
-            last_change = None;
-        }
+            IR::Getch(off) => {
+                ret.push(IR::Getch(off + last_change.unwrap_or(0)));
+            }
+            IR::Putch(off) => {
+                ret.push(IR::Putch(off + last_change.unwrap_or(0)));
+            }
+            _ => {
+                if let Some(amt) = last_change {
+                    if amt != 0 {
+                        ret.push(IR::PtrChange(amt));
+                    }
+                    last_change = None;
+                }
 
-        if let IR::Loop(inner) = ir {
-            ret.push(IR::Loop(compress_changes(inner)));
-        } else {
-            ret.push(ir.clone());
+                if let IR::Loop(inner) = ir {
+                    ret.push(IR::Loop(compress_changes(inner)));
+                } else {
+                    ret.push(ir.clone());
+                }
+            }
         }
     }
     if let Some(amt) = last_change {
@@ -99,10 +107,10 @@ fn simplify_loop(ins: &IR) -> IR {
     for i in irs.iter() {
         assert!(!matches!(i, IR::MovImm(..)));
         match i {
-            IR::Putch => {
-                ret_inner.push(IR::Putch);
+            IR::Putch(..) => {
+                ret_inner.push(i.clone());
             }
-            IR::Getch => {
+            IR::Getch(..) => {
                 if ptr_change == 0 {
                     simplifiable = false;
                     break;
@@ -195,7 +203,11 @@ fn compress_muls(irs: &Vec<IR>) -> Vec<IR> {
 }
 
 fn collapse_consts(irs: &Vec<IR>) -> Vec<IR> {
-    fn recur(irs: &Vec<IR>, state: &mut HashMap<ir::Offset, Option<ir::Value>>, idx: ir::Offset) -> Vec<IR> {
+    fn recur(
+        irs: &Vec<IR>,
+        state: &mut HashMap<ir::Offset, Option<ir::Value>>,
+        idx: ir::Offset,
+    ) -> Vec<IR> {
         let mut knowable = true;
         let mut ret = Vec::new();
         let mut off = 0;
@@ -261,12 +273,12 @@ fn collapse_consts(irs: &Vec<IR>) -> Vec<IR> {
                         knowable = false;
                     }
                 },
-                IR::Putch => {
+                IR::Putch(..) => {
                     ret.push(i.clone());
                 }
-                IR::Getch => {
+                IR::Getch(getch_off) => {
                     ret.push(i.clone());
-                    state.insert(idx + off, None);
+                    state.insert(idx + off + getch_off, None);
                 }
                 IR::MovImm(dst_off, val) => {
                     state.insert(idx + off + dst_off, Some(*val));
@@ -330,14 +342,14 @@ fn remove_unread_stores(irs: &Vec<IR>) -> Vec<IR> {
                     }
                     ret.push(ir.clone());
                 }
-                IR::Putch => {
+                IR::Putch(..) => {
                     if let Some(val) = writes.remove(&(idx + off)) {
                         ret.push(IR::MovImm(0, val));
                     }
                     ret.push(ir.clone());
                 }
-                IR::Getch => {
-                    writes.remove(&(idx + off));
+                IR::Getch(getch_off) => {
+                    writes.remove(&(idx + off + getch_off));
                     ret.push(ir.clone());
                 }
                 IR::MovImm(dst_off, amt) => {

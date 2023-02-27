@@ -25,11 +25,11 @@ impl CEmitter {
             IR::Add(amt) => {
                 println!("  arr[idx] += {};", amt);
             }
-            IR::Putch => {
-                println!("  putchar(arr[idx]);");
+            IR::Putch(off) => {
+                println!("  putchar(arr[idx + {}]);", off);
             }
-            IR::Getch => {
-                println!("  arr[idx] = (char)getchar();");
+            IR::Getch(off) => {
+                println!("  arr[idx + {}] = (char)getchar();", off);
             }
             IR::Loop(nodes) => {
                 println!("  while (arr[idx]) {{");

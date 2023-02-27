@@ -8,8 +8,8 @@ pub enum IR {
     Loop(Vec<IR>),
     PtrChange(Offset),
     Add(Value),
-    Putch,
-    Getch,
+    Putch(Offset),
+    Getch(Offset),
 
     SimpleLoop(Value, Vec<IR>),
     AddMul(Offset, Value),
@@ -31,8 +31,8 @@ impl IRProgram {
             AST::PtrRetreat => IR::PtrChange(-1),
             AST::Incr => IR::Add(1),
             AST::Decr => IR::Add(-1),
-            AST::Putch => IR::Putch,
-            AST::Getch => IR::Getch,
+            AST::Putch => IR::Putch(0),
+            AST::Getch => IR::Getch(0),
         }
     }
 }

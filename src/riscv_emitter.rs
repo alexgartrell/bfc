@@ -43,9 +43,10 @@ impl RiscVEmitter {
                 println!("  addi t0, t0, {}", amt);
                 println!("  sb t0, (s1)");
             }
-            IR::Putch => {
+            IR::Putch(off) => {
                 println!("  li a0, 1");
                 println!("  mv a1, s1");
+                println!("  addi a1, a1, {}", off);
                 println!("  li a2, 1");
                 if nostdlib {
                     println!("  li a7, 64");
@@ -54,9 +55,10 @@ impl RiscVEmitter {
                     println!("  call write");
                 }
             }
-            IR::Getch => {
+            IR::Getch(off) => {
                 println!("  li a0, 0");
                 println!("  mv a1, s1");
+                println!("  addi a1, a1, {}", off);
                 println!("  li a2, 1");
                 if nostdlib {
                     println!("  li a7, 63");
@@ -90,17 +92,18 @@ impl RiscVEmitter {
                 for n in nodes {
                     self.emit_inner(n, nostdlib);
                 }
-
                 self.emit_inner(&IR::Add(*delta), nostdlib);
+
                 println!("  j {}", l);
                 println!("{}_done:", l);
             }
             IR::AddMul(off, amt) => {
                 println!("  lb t0, (s1)");
-                println!("  muli t0, t0, {}", amt);
+                println!("  li t1, {}", amt);
+                println!("  mul t0, t0, t1");
                 println!("  lb t1, {}(s1)", off);
                 println!("  add t0, t0, t1");
-                println!("  sb t0, (s1)");
+                println!("  sb t0, {}(s1)", off);
             }
             IR::MovImm(off, imm) => {
                 println!("  li t0, {}", imm);

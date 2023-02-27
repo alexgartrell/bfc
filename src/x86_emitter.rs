@@ -54,20 +54,20 @@ impl X86Emitter {
                 println!("  add ${}, %dil", amt);
                 println!("  movb %dil, (%rbx)");
             }
-            IR::Putch => {
+            IR::Putch(off) => {
                 if nostdlib {
                     println!("  call putch"); // Read
                 } else {
-                    println!("  movb (%rbx), %dil");
+                    println!("  movb {}(%rbx), %dil", off);
                     println!("  call putchar");
                 }
             }
-            IR::Getch => {
+            IR::Getch(off) => {
                 if nostdlib {
                     println!("  call gettch"); // Read
                 } else {
                     println!("  call getchar");
-                    println!("  movb %al, (%rbx)");
+                    println!("  movb %al, {}(%rbx)", off);
                 }
             }
             IR::Loop(nodes) => {

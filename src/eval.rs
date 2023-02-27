@@ -37,11 +37,11 @@ pub fn eval(prog: &ir::IRProgram) {
                 IR::Add(amt) => {
                     state.write(0, state.read(0) + amt);
                 }
-                IR::Putch => unsafe {
-                    libc::putchar(state.read(0) as libc::c_int);
+                IR::Putch(off) => unsafe {
+                    libc::putchar(state.read(*off) as libc::c_int);
                 },
-                IR::Getch => unsafe {
-                    state.write(0, libc::getchar() as ir::Value);
+                IR::Getch(off) => unsafe {
+                    state.write(*off, libc::getchar() as ir::Value);
                 },
                 IR::SimpleLoop(delta, inner) => {
                     while state.read(0) != 0 {
