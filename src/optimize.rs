@@ -8,7 +8,7 @@ fn kill_trivial_dead_loops(irs: &Vec<IR>) -> Vec<IR> {
     for ir in irs {
         match ir {
             IR::Loop(_) if !changes => {}
-            IR::Add(_) | IR::Getch(..) | IR::Putch(..) => {
+            IR::Add(..) | IR::Getch(..) | IR::Putch(..) => {
                 changes = true;
                 ret.push(ir.clone());
             }
@@ -24,14 +24,15 @@ fn compress_adds(irs: &Vec<IR>) -> Vec<IR> {
     let mut last_add = None;
 
     for ir in irs {
-        if let IR::Add(amt) = ir {
+        if let IR::Add(add_off, amt) = ir {
+	    assert_eq!(*add_off, 0);
             last_add = Some(last_add.map_or(*amt, |a: ir::Value| a + *amt));
             continue;
         }
 
         if let Some(amt) = last_add {
             if amt != 0 {
-                ret.push(IR::Add(amt));
+                ret.push(IR::Add(0, amt));
             }
             last_add = None;
         }
@@ -44,7 +45,7 @@ fn compress_adds(irs: &Vec<IR>) -> Vec<IR> {
     }
     if let Some(amt) = last_add {
         if amt != 0 {
-            ret.push(IR::Add(amt));
+            ret.push(IR::Add(0, amt));
         }
     }
 
@@ -126,8 +127,8 @@ fn simplify_loop(ins: &IR) -> IR {
                     ret_inner.push(i.clone());
                 }
             }
-            IR::Add(amt) => {
-                if ptr_change == 0 {
+            IR::Add(add_off, amt) => {
+                if ptr_change == *add_off {
                     delta += amt;
                 } else {
                     ret_inner.push(i.clone());
@@ -178,8 +179,8 @@ fn compress_muls(irs: &Vec<IR>) -> Vec<IR> {
                     IR::PtrChange(amt) => {
                         off += amt;
                     }
-                    IR::Add(amt) => {
-                        *changes.entry(off).or_insert(0) += amt;
+                    IR::Add(add_off, amt) => {
+                        *changes.entry(off + add_off).or_insert(0) += amt;
                     }
                     _ => {
                         ret.push(IR::SimpleLoop(*delta, compress_muls(inner)));
@@ -222,8 +223,8 @@ fn collapse_consts(irs: &Vec<IR>) -> Vec<IR> {
                     ret.push(i.clone());
                     off += amt;
                 }
-                IR::Add(amt) => {
-                    let init = match state.get(&(idx + off)) {
+                IR::Add(add_off, amt) => {
+                    let init = match state.get(&(idx + off + add_off)) {
                         None => 0,
                         Some(None) => {
                             ret.push(i.clone());
@@ -232,8 +233,8 @@ fn collapse_consts(irs: &Vec<IR>) -> Vec<IR> {
                         Some(Some(v)) => *v,
                     };
                     let sum = init + amt;
-                    state.insert(idx + off, Some(sum));
-                    ret.push(IR::MovImm(0, sum));
+                    state.insert(idx + off + add_off, Some(sum));
+                    ret.push(IR::MovImm(*add_off, sum));
                 }
                 IR::AddMul(dst_off, amt) => {
                     let init = match state.get(&(idx + off + dst_off)) {
@@ -336,9 +337,9 @@ fn remove_unread_stores(irs: &Vec<IR>) -> Vec<IR> {
                     off += amt;
                     ret.push(ir.clone());
                 }
-                IR::Add(_amt) => {
-                    if let Some(val) = writes.remove(&(idx + off)) {
-                        ret.push(IR::MovImm(0, val));
+                IR::Add(add_off, _amt) => {
+                    if let Some(val) = writes.remove(&(idx + off + add_off)) {
+                        ret.push(IR::MovImm(*add_off, val));
                     }
                     ret.push(ir.clone());
                 }
@@ -366,7 +367,8 @@ fn remove_unread_stores(irs: &Vec<IR>) -> Vec<IR> {
 }
 
 pub fn optimize(prog: &IRProgram) -> IRProgram {
-    let irs = compress_adds(&prog.0);
+    let irs = &prog.0;
+    let irs = compress_adds(&irs);
     let irs = compress_changes(&irs);
     let irs = kill_trivial_dead_loops(&irs);
     let irs = irs.iter().map(simplify_loop).collect();
@@ -375,5 +377,6 @@ pub fn optimize(prog: &IRProgram) -> IRProgram {
     let irs = collapse_consts(&irs);
     let irs = remove_unread_stores(&irs);
     let irs = compress_changes(&irs);
+    let irs = compress_adds(&irs);
     IRProgram(irs)
 }

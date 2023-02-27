@@ -22,8 +22,8 @@ impl CEmitter {
             IR::PtrChange(amt) => {
                 println!("  idx += {};", amt);
             }
-            IR::Add(amt) => {
-                println!("  arr[idx] += {};", amt);
+            IR::Add(add_off, amt) => {
+                println!("  arr[idx + {}] += {};", add_off, amt);
             }
             IR::Putch(off) => {
                 println!("  putchar(arr[idx + {}]);", off);

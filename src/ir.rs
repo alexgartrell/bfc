@@ -7,7 +7,7 @@ pub type Value = i8;
 pub enum IR {
     Loop(Vec<IR>),
     PtrChange(Offset),
-    Add(Value),
+    Add(Offset, Value),
     Putch(Offset),
     Getch(Offset),
 
@@ -29,8 +29,8 @@ impl IRProgram {
             AST::Loop(asts) => IR::Loop(asts.iter().map(|a| Self::from_ast_node(a)).collect()),
             AST::PtrAdvance => IR::PtrChange(1),
             AST::PtrRetreat => IR::PtrChange(-1),
-            AST::Incr => IR::Add(1),
-            AST::Decr => IR::Add(-1),
+            AST::Incr => IR::Add(0, 1),
+            AST::Decr => IR::Add(0, -1),
             AST::Putch => IR::Putch(0),
             AST::Getch => IR::Getch(0),
         }

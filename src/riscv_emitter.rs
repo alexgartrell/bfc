@@ -38,10 +38,10 @@ impl RiscVEmitter {
             IR::PtrChange(amt) => {
                 println!("  addi s1, s1, {}", amt);
             }
-            IR::Add(amt) => {
-                println!("  lb t0, (s1)");
+            IR::Add(add_off, amt) => {
+                println!("  lb t0, {}(s1)", add_off);
                 println!("  addi t0, t0, {}", amt);
-                println!("  sb t0, (s1)");
+                println!("  sb t0, {}(s1)", add_off);
             }
             IR::Putch(off) => {
                 println!("  li a0, 1");
@@ -92,7 +92,7 @@ impl RiscVEmitter {
                 for n in nodes {
                     self.emit_inner(n, nostdlib);
                 }
-                self.emit_inner(&IR::Add(*delta), nostdlib);
+                self.emit_inner(&IR::Add(0, *delta), nostdlib);
 
                 println!("  j {}", l);
                 println!("{}_done:", l);

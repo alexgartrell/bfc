@@ -49,10 +49,10 @@ impl X86Emitter {
             IR::PtrChange(amt) => {
                 println!("  add ${}, %rbx", amt);
             }
-            IR::Add(amt) => {
-                println!("  movb (%rbx), %dil");
+            IR::Add(add_off, amt) => {
+                println!("  movb {}(%rbx), %dil", add_off);
                 println!("  add ${}, %dil", amt);
-                println!("  movb %dil, (%rbx)");
+                println!("  movb %dil, {}(%rbx)", add_off);
             }
             IR::Putch(off) => {
                 if nostdlib {
@@ -97,7 +97,7 @@ impl X86Emitter {
                     self.emit_inner(n, nostdlib);
                 }
 
-                self.emit_inner(&IR::Add(*delta), nostdlib);
+                self.emit_inner(&IR::Add(0, *delta), nostdlib);
                 println!("  jmp {}", l);
                 println!("{}_done:", l);
             }

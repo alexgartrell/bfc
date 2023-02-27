@@ -34,8 +34,8 @@ pub fn eval(prog: &ir::IRProgram) {
                 IR::PtrChange(amt) => {
                     state.ptr_change(*amt);
                 }
-                IR::Add(amt) => {
-                    state.write(0, state.read(0) + amt);
+                IR::Add(add_off, amt) => {
+                    state.write(*add_off, state.read(*add_off) + amt);
                 }
                 IR::Putch(off) => unsafe {
                     libc::putchar(state.read(*off) as libc::c_int);
