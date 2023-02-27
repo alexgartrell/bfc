@@ -1,4 +1,4 @@
-use crate::ir::{IRProgram, IR};
+use crate::ir::{self, IRProgram, IR};
 use std::collections::HashMap;
 
 fn kill_trivial_dead_loops(irs: &Vec<IR>) -> Vec<IR> {
@@ -25,7 +25,7 @@ fn compress_adds(irs: &Vec<IR>) -> Vec<IR> {
 
     for ir in irs {
         if let IR::Add(amt) = ir {
-            last_add = Some(last_add.map_or(*amt, |a: i8| a + *amt));
+            last_add = Some(last_add.map_or(*amt, |a: ir::Value| a + *amt));
             continue;
         }
 
@@ -58,7 +58,7 @@ fn compress_changes(irs: &Vec<IR>) -> Vec<IR> {
 
     for ir in irs {
         if let IR::PtrChange(amt) = ir {
-            last_change = Some(last_change.map_or(*amt, |a: i32| a + *amt));
+            last_change = Some(last_change.map_or(*amt, |a: ir::Offset| a + *amt));
             continue;
         }
 
@@ -163,7 +163,7 @@ fn compress_muls(irs: &Vec<IR>) -> Vec<IR> {
                 continue;
             }
 
-            let mut changes = HashMap::new(); //<i32, i8>
+            let mut changes = HashMap::new(); //<ir::Offset, ir::Value>
             let mut off = 0;
             for iir in inner {
                 match iir {
@@ -195,7 +195,7 @@ fn compress_muls(irs: &Vec<IR>) -> Vec<IR> {
 }
 
 fn collapse_consts(irs: &Vec<IR>) -> Vec<IR> {
-    fn recur(irs: &Vec<IR>, state: &mut HashMap<i32, Option<i8>>, idx: i32) -> Vec<IR> {
+    fn recur(irs: &Vec<IR>, state: &mut HashMap<ir::Offset, Option<ir::Value>>, idx: ir::Offset) -> Vec<IR> {
         let mut knowable = true;
         let mut ret = Vec::new();
         let mut off = 0;
@@ -281,7 +281,7 @@ fn collapse_consts(irs: &Vec<IR>) -> Vec<IR> {
 }
 
 fn remove_unread_stores(irs: &Vec<IR>) -> Vec<IR> {
-    fn flush_writes(writes: &mut HashMap<i32, i8>, cur: i32) -> Vec<IR> {
+    fn flush_writes(writes: &mut HashMap<ir::Offset, ir::Value>, cur: ir::Offset) -> Vec<IR> {
         let mut ret = Vec::new();
         for (glob_off, val) in writes.iter() {
             ret.push(IR::MovImm(glob_off - cur, *val));
@@ -289,7 +289,7 @@ fn remove_unread_stores(irs: &Vec<IR>) -> Vec<IR> {
         writes.clear();
         ret
     }
-    fn recur(irs: &Vec<IR>, idx: i32, flush: bool) -> Vec<IR> {
+    fn recur(irs: &Vec<IR>, idx: ir::Offset, flush: bool) -> Vec<IR> {
         let mut ret = Vec::new();
         let mut off = 0;
         let mut writes = HashMap::new();

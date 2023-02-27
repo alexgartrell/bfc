@@ -1,16 +1,19 @@
 use crate::ast::{ASTProgram, AST};
 
+pub type Offset = i32;
+pub type Value = i8;
+
 #[derive(Clone, Debug)]
 pub enum IR {
     Loop(Vec<IR>),
-    PtrChange(i32),
-    Add(i8),
+    PtrChange(Offset),
+    Add(Value),
     Putch,
     Getch,
 
-    SimpleLoop(i8, Vec<IR>),
-    AddMul(i32, i8),
-    MovImm(i32, i8),
+    SimpleLoop(Value, Vec<IR>),
+    AddMul(Offset, Value),
+    MovImm(Offset, Value),
 }
 
 #[derive(Debug)]

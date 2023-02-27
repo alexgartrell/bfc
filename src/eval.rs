@@ -3,20 +3,20 @@ use std::collections::HashMap;
 
 #[derive(Default)]
 struct State {
-    mem: HashMap<i32, i8>,
-    idx: i32,
+    mem: HashMap<ir::Offset, ir::Value>,
+    idx: ir::Offset,
 }
 
 impl State {
-    fn read(&self, off: i32) -> i8 {
+    fn read(&self, off: ir::Offset) -> ir::Value {
         *self.mem.get(&(self.idx + off)).unwrap_or(&0)
     }
 
-    fn write(&mut self, off: i32, val: i8) {
+    fn write(&mut self, off: ir::Offset, val: ir::Value) {
         self.mem.insert(self.idx + off, val);
     }
 
-    fn ptr_change(&mut self, amt: i32) {
+    fn ptr_change(&mut self, amt: ir::Offset) {
         self.idx += amt;
     }
 }
@@ -41,7 +41,7 @@ pub fn eval(prog: &ir::IRProgram) {
                     libc::putchar(state.read(0) as libc::c_int);
                 },
                 IR::Getch => unsafe {
-                    state.write(0, libc::getchar() as i8);
+                    state.write(0, libc::getchar() as ir::Value);
                 },
                 IR::SimpleLoop(delta, inner) => {
                     while state.read(0) != 0 {
