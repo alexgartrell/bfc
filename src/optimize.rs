@@ -1,57 +1,6 @@
 use crate::ir::{self, IRProgram, IR};
 use std::collections::HashMap;
 
-fn kill_trivial_dead_loops(irs: &Vec<IR>) -> Vec<IR> {
-    let mut ret = Vec::new();
-    let mut changes = false;
-
-    for ir in irs {
-        match ir {
-            IR::Loop(_) if !changes => {}
-            IR::Add(..) | IR::Getch(..) | IR::Putch(..) => {
-                changes = true;
-                ret.push(ir.clone());
-            }
-            ir => ret.push(ir.clone()),
-        }
-    }
-    ret
-}
-
-fn compress_adds(irs: &Vec<IR>) -> Vec<IR> {
-    let mut ret = Vec::new();
-
-    let mut last_add = None;
-
-    for ir in irs {
-        if let IR::Add(add_off, amt) = ir {
-            assert_eq!(*add_off, 0);
-            last_add = Some(last_add.map_or(*amt, |a: ir::Value| a + *amt));
-            continue;
-        }
-
-        if let Some(amt) = last_add {
-            if amt != 0 {
-                ret.push(IR::Add(0, amt));
-            }
-            last_add = None;
-        }
-
-        if let IR::Loop(inner) = ir {
-            ret.push(IR::Loop(compress_adds(inner)));
-        } else {
-            ret.push(ir.clone());
-        }
-    }
-    if let Some(amt) = last_add {
-        if amt != 0 {
-            ret.push(IR::Add(0, amt));
-        }
-    }
-
-    ret
-}
-
 fn compress_changes(irs: &Vec<IR>) -> Vec<IR> {
     let mut ret = Vec::new();
 
@@ -396,15 +345,12 @@ fn remove_unread_stores(irs: &Vec<IR>) -> Vec<IR> {
 
 pub fn optimize(prog: &IRProgram) -> IRProgram {
     let irs = &prog.0;
-    let irs = compress_adds(&irs);
     let irs = compress_changes(&irs);
-    let irs = kill_trivial_dead_loops(&irs);
     let irs = irs.iter().map(simplify_loop).collect();
     let irs = compress_changes(&irs);
     let irs = compress_muls(&irs);
     let irs = collapse_consts(&irs);
     let irs = remove_unread_stores(&irs);
     let irs = compress_changes(&irs);
-    let irs = compress_adds(&irs);
     IRProgram(irs)
 }
