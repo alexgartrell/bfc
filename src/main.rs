@@ -5,6 +5,7 @@ mod ir;
 mod optimize;
 mod parser;
 mod riscv_emitter;
+mod test;
 mod x86_emitter;
 
 use clap::{Parser, ValueEnum};

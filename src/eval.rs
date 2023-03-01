@@ -21,14 +21,36 @@ impl State {
     }
 }
 
+pub trait IO {
+    fn putchar(&mut self, val: i8);
+    fn getchar(&mut self) -> i8;
+}
+
+pub struct CIO {}
+impl IO for CIO {
+    fn putchar(&mut self, val: ir::Value) {
+        unsafe {
+            libc::putchar(val as libc::c_int);
+        }
+    }
+    fn getchar(&mut self) -> ir::Value {
+        unsafe { libc::getchar() as ir::Value }
+    }
+}
+
 pub fn eval(prog: &ir::IRProgram) {
+    let mut io = CIO {};
+    eval_with_io(prog, &mut io)
+}
+
+pub fn eval_with_io(prog: &ir::IRProgram, io: &mut impl IO) {
     let mut state = State::default();
-    fn run_series(irs: &[ir::IR], state: &mut State) {
+    fn run_series(irs: &[ir::IR], state: &mut State, io: &mut impl IO) {
         for ir in irs {
             match ir {
                 IR::Loop(inner) => {
                     while state.read(0) != 0 {
-                        run_series(inner, state);
+                        run_series(inner, state, io);
                     }
                 }
                 IR::PtrChange(amt) => {
@@ -37,15 +59,11 @@ pub fn eval(prog: &ir::IRProgram) {
                 IR::Add(add_off, amt) => {
                     state.write(*add_off, state.read(*add_off) + amt);
                 }
-                IR::Putch(off) => unsafe {
-                    libc::putchar(state.read(*off) as libc::c_int);
-                },
-                IR::Getch(off) => unsafe {
-                    state.write(*off, libc::getchar() as ir::Value);
-                },
+                IR::Putch(off) => io.putchar(state.read(*off)),
+                IR::Getch(off) => state.write(*off, io.getchar()),
                 IR::SimpleLoop(delta, inner) => {
                     while state.read(0) != 0 {
-                        run_series(inner, state);
+                        run_series(inner, state, io);
                         state.write(0, state.read(0) + delta);
                     }
                 }
@@ -58,5 +76,5 @@ pub fn eval(prog: &ir::IRProgram) {
             }
         }
     }
-    run_series(&prog.0, &mut state);
+    run_series(&prog.0, &mut state, io);
 }
