@@ -25,7 +25,7 @@ fn compress_adds(irs: &Vec<IR>) -> Vec<IR> {
 
     for ir in irs {
         if let IR::Add(add_off, amt) = ir {
-	    assert_eq!(*add_off, 0);
+            assert_eq!(*add_off, 0);
             last_add = Some(last_add.map_or(*amt, |a: ir::Value| a + *amt));
             continue;
         }
@@ -204,11 +204,13 @@ fn compress_muls(irs: &Vec<IR>) -> Vec<IR> {
 }
 
 fn collapse_consts(irs: &Vec<IR>) -> Vec<IR> {
-    fn recur(
-        irs: &Vec<IR>,
-        state: &mut HashMap<ir::Offset, Option<ir::Value>>,
-        idx: ir::Offset,
-    ) -> Vec<IR> {
+    #[derive(Clone, Debug)]
+    enum Value {
+        Const(i8),
+        Add(i8),
+    }
+
+    fn recur(irs: &Vec<IR>, state: &mut HashMap<ir::Offset, Value>, idx: ir::Offset) -> Vec<IR> {
         let mut knowable = true;
         let mut ret = Vec::new();
         let mut off = 0;
@@ -224,65 +226,91 @@ fn collapse_consts(irs: &Vec<IR>) -> Vec<IR> {
                     off += amt;
                 }
                 IR::Add(add_off, amt) => {
-                    let init = match state.get(&(idx + off + add_off)) {
-                        None => 0,
-                        Some(None) => {
-                            ret.push(i.clone());
-                            continue;
+                    let init = state
+                        .get(&(idx + off + add_off))
+                        .unwrap_or(&Value::Const(0));
+                    match init {
+                        Value::Add(cur) => {
+                            state.insert(idx + off + add_off, Value::Add(amt + cur));
                         }
-                        Some(Some(v)) => *v,
-                    };
-                    let sum = init + amt;
-                    state.insert(idx + off + add_off, Some(sum));
-                    ret.push(IR::MovImm(*add_off, sum));
+                        Value::Const(cur) => {
+                            state.insert(idx + off + add_off, Value::Const(amt + cur));
+                        }
+                    }
                 }
                 IR::AddMul(dst_off, amt) => {
-                    let init = match state.get(&(idx + off + dst_off)) {
-                        None => 0,
-                        Some(None) => {
+                    let init = match state
+                        .get(&(idx + off + dst_off))
+                        .unwrap_or(&Value::Const(0))
+                    {
+                        Value::Add(amt) => {
+                            ret.push(IR::Add(*dst_off, *amt));
                             ret.push(i.clone());
                             continue;
                         }
-                        Some(Some(v)) => *v,
+                        Value::Const(amt) => amt,
                     };
-                    let multiplier = match state.get(&(idx + off)) {
-                        None => 0,
-                        Some(None) => {
+                    let multiplier = match state.get(&(idx + off)).unwrap_or(&Value::Const(0)) {
+                        Value::Add(amt) => {
+                            ret.push(IR::Add(0, *amt));
                             ret.push(i.clone());
                             continue;
                         }
-                        Some(Some(v)) => *v,
+                        Value::Const(amt) => amt,
                     };
-                    ret.push(IR::MovImm(*dst_off, init + multiplier * amt));
-                    state.insert(*dst_off, Some(init + multiplier * amt));
+                    state.insert(*dst_off, Value::Const(init + multiplier * amt));
                 }
                 IR::SimpleLoop(delta, inner) => {
-                    match state.get(&(idx + off)) {
-                        None | Some(Some(0)) => {
+                    match state.get(&(idx + off)).unwrap_or(&Value::Const(0)) {
+                        Value::Const(0) => {
                             // No looping
                         }
                         _ => {
+                            for (loc_off, v) in &mut *state {
+                                match v {
+                                    Value::Add(amt) => ret.push(IR::Add(loc_off - off - idx, *amt)),
+                                    Value::Const(amt) => {
+                                        ret.push(IR::MovImm(loc_off - off - idx, *amt))
+                                    }
+                                }
+                            }
+                            state.clear();
                             ret.push(i.clone());
                             knowable = false;
                         }
                     }
                 }
-                IR::Loop(_inner) => match state.get(&(idx + off)) {
-                    None | Some(Some(0)) => {}
+                IR::Loop(_inner) => match state.get(&(idx + off)).unwrap_or(&Value::Const(0)) {
+                    Value::Const(0) => {}
                     _ => {
+                        for (loc_off, v) in &mut *state {
+                            match v {
+                                Value::Add(amt) => ret.push(IR::Add(loc_off - off - idx, *amt)),
+                                Value::Const(amt) => {
+                                    ret.push(IR::MovImm(loc_off - off - idx, *amt))
+                                }
+                            }
+                        }
+                        state.clear();
+
                         ret.push(i.clone());
                         knowable = false;
                     }
                 },
-                IR::Putch(..) => {
+                IR::Putch(put_off) => {
+                    match state.remove(&(idx + off + put_off)) {
+                        Some(Value::Add(amt)) => ret.push(IR::Add(*put_off, amt)),
+                        Some(Value::Const(amt)) => ret.push(IR::MovImm(*put_off, amt)),
+                        None => {}
+                    }
                     ret.push(i.clone());
                 }
-                IR::Getch(getch_off) => {
+                IR::Getch(get_off) => {
                     ret.push(i.clone());
-                    state.insert(idx + off + getch_off, None);
+                    state.insert(idx + off + get_off, Value::Add(0));
                 }
                 IR::MovImm(dst_off, val) => {
-                    state.insert(idx + off + dst_off, Some(*val));
+                    state.insert(idx + off + dst_off, Value::Const(*val));
                     ret.push(i.clone());
                 }
             }
