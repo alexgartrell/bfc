@@ -209,7 +209,7 @@ fn collapse_consts(irs: &Vec<IR>) -> Vec<IR> {
                     };
                     state.insert(*dst_off, Value::Const(init + multiplier * amt));
                 }
-                IR::SimpleLoop(delta, inner) => {
+                IR::SimpleLoop(..) => {
                     match state.get(&(idx + off)).unwrap_or(&Value::Const(0)) {
                         Value::Const(0) => {
                             // No looping
@@ -229,7 +229,7 @@ fn collapse_consts(irs: &Vec<IR>) -> Vec<IR> {
                         }
                     }
                 }
-                IR::Loop(_inner) => match state.get(&(idx + off)).unwrap_or(&Value::Const(0)) {
+                IR::Loop(..) => match state.get(&(idx + off)).unwrap_or(&Value::Const(0)) {
                     Value::Const(0) => {}
                     _ => {
                         for (loc_off, v) in &mut *state {
