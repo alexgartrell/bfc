@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AST {
     // The actual language constructs
     Loop(Vec<AST>),
@@ -10,5 +10,5 @@ pub enum AST {
     Getch,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct ASTProgram(pub Vec<AST>);

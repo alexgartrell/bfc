@@ -3,7 +3,7 @@ use crate::ast::{ASTProgram, AST};
 pub type Offset = i32;
 pub type Value = i8;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum IR {
     Loop(Vec<IR>),
     PtrChange(Offset),

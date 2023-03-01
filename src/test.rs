@@ -52,16 +52,16 @@ impl TestIO {
     }
 }
 
-fn test_unopt_program(code: &str, input: &str, output: &str) {
-    let ast_prog = parser::Parser::parse(&code);
+fn test_unopt_program_io(code: &str, input: &str, output: &str) {
+    let ast_prog = parser::Parser::parse(&code).unwrap();
     let ir_prog = ir::IRProgram::from_ast_program(&ast_prog);
     let mut io = TestIO::new(input, output);
     eval::eval_with_io(&ir_prog, &mut io);
     io.done();
 }
 
-fn test_opt_program(code: &str, input: &str, output: &str) {
-    let ast_prog = parser::Parser::parse(&code);
+fn test_opt_program_io(code: &str, input: &str, output: &str) {
+    let ast_prog = parser::Parser::parse(&code).unwrap();
     let ir_prog = ir::IRProgram::from_ast_program(&ast_prog);
     dbg!(&ir_prog);
     let ir_prog = optimize::optimize(&ir_prog);
@@ -71,11 +71,6 @@ fn test_opt_program(code: &str, input: &str, output: &str) {
     io.done();
 }
 
-fn test_program(code: &str, input: &str, output: &str) {
-    test_unopt_program(code, input, output);
-    test_opt_program(code, input, output);
-}
-
 macro_rules! make_test {
     ($test_name:ident, $code:expr, $input:expr, $output:expr) => {
         #[cfg(test)]
@@ -83,12 +78,12 @@ macro_rules! make_test {
             use super::*;
             #[test]
             fn test_unoptimized() {
-                test_unopt_program($code, $input, $output);
+                test_unopt_program_io($code, $input, $output);
             }
 
             #[test]
             fn test_optimized() {
-                test_opt_program($code, $input, $output);
+                test_opt_program_io($code, $input, $output);
             }
         }
     };
@@ -100,3 +95,5 @@ make_test!(put_newline, "++++++++++.", "", "\n");
 make_test!(get_get_put, ",,.", "ab", "b");
 make_test!(addmul, "++++++[->+++++<]>++.", "", " ");
 make_test!(two_cells, "++>+++<.>.", "", "\x02\x03");
+make_test!(double_add_mul, "++++[->++++[->++++<]<]>>.", "", "\x40");
+make_test!(dead_loops, "[.]>>>>>>>>>>>>>>>>>>>>>[,]", "", "");

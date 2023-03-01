@@ -50,7 +50,14 @@ fn main() -> ExitCode {
         code
     };
 
-    let ast_prog = parser::Parser::parse(&code);
+    let ast_prog = match parser::Parser::parse(&code) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("Failed to parse program: {:?}", e);
+            return ExitCode::from(2);
+        }
+    };
+
     let ir_prog = ir::IRProgram::from_ast_program(&ast_prog);
     if args.eval {
         eval::eval(&ir_prog);
