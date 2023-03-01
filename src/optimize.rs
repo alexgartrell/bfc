@@ -298,9 +298,9 @@ fn collapse_consts(irs: &Vec<IR>) -> Vec<IR> {
                     }
                 },
                 IR::Putch(put_off) => {
-                    match state.remove(&(idx + off + put_off)) {
-                        Some(Value::Add(amt)) => ret.push(IR::Add(*put_off, amt)),
-                        Some(Value::Const(amt)) => ret.push(IR::MovImm(*put_off, amt)),
+                    match state.get(&(idx + off + put_off)) {
+                        Some(Value::Add(amt)) => ret.push(IR::Add(*put_off, *amt)),
+                        Some(Value::Const(amt)) => ret.push(IR::MovImm(*put_off, *amt)),
                         None => {}
                     }
                     ret.push(i.clone());
@@ -371,9 +371,9 @@ fn remove_unread_stores(irs: &Vec<IR>) -> Vec<IR> {
                     }
                     ret.push(ir.clone());
                 }
-                IR::Putch(..) => {
-                    if let Some(val) = writes.remove(&(idx + off)) {
-                        ret.push(IR::MovImm(0, val));
+                IR::Putch(put_off) => {
+                    if let Some(val) = writes.remove(&(idx + off + put_off)) {
+                        ret.push(IR::MovImm(*put_off, val));
                     }
                     ret.push(ir.clone());
                 }

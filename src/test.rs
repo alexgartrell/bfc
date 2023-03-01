@@ -99,4 +99,4 @@ make_test!(put_zero, ".", "", "\0");
 make_test!(put_newline, "++++++++++.", "", "\n");
 make_test!(get_get_put, ",,.", "ab", "b");
 make_test!(addmul, "++++++[->+++++<]>++.", "", " ");
-// test_program("++++++++[->++++++++<]>+.", "", "A");
+make_test!(two_cells, "++>+++<.>.", "", "\x02\x03");
