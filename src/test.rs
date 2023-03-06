@@ -63,9 +63,7 @@ fn test_unopt_program_io(code: &str, input: &str, output: &str) {
 fn test_opt_program_io(code: &str, input: &str, output: &str) {
     let ast_prog = parser::Parser::parse(&code).unwrap();
     let ir_prog = ir::IRProgram::from_ast_program(&ast_prog);
-    dbg!(&ir_prog);
     let ir_prog = optimize::optimize(&ir_prog);
-    dbg!(&ir_prog);
     let mut io = TestIO::new(input, output);
     eval::eval_with_io(&ir_prog, &mut io);
     io.done();
@@ -97,3 +95,12 @@ make_test!(addmul, "++++++[->+++++<]>++.", "", " ");
 make_test!(two_cells, "++>+++<.>.", "", "\x02\x03");
 make_test!(double_add_mul, "++++[->++++[->++++<]<]>>.", "", "\x40");
 make_test!(dead_loops, "[.]>>>>>>>>>>>>>>>>>>>>>[,]", "", "");
+make_test!(simple_const_add_mul, "+++++>+[-<+>]<.", "", "\x06");
+make_test!(simple_get_add_mul, ",>+[-<+>]<.", "\x05", "\x06");
+
+make_test!(
+    get_add_mul,
+    ">,<+++++[->-----<]>.",
+    "\x05",
+    &((-20 as i8 as u8) as char).to_string()
+);

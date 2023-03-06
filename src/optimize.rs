@@ -2,44 +2,50 @@ use crate::ir::{self, IRProgram, IR};
 use std::collections::HashMap;
 
 fn compress_changes(irs: &Vec<IR>) -> Vec<IR> {
-    let mut ret = Vec::new();
+    fn recur(irs: &Vec<IR>, preserve_change: bool) -> Vec<IR> {
+        let mut ret = Vec::new();
 
-    let mut last_change = None;
+        let mut last_change = None;
 
-    for ir in irs {
-        match ir {
-            IR::PtrChange(amt) => {
-                last_change = Some(last_change.map_or(*amt, |a: ir::Offset| a + *amt));
-            }
-            IR::Getch(off) => {
-                ret.push(IR::Getch(off + last_change.unwrap_or(0)));
-            }
-            IR::Putch(off) => {
-                ret.push(IR::Putch(off + last_change.unwrap_or(0)));
-            }
-            _ => {
-                if let Some(amt) = last_change {
-                    if amt != 0 {
-                        ret.push(IR::PtrChange(amt));
+        for ir in irs {
+            match ir {
+                IR::PtrChange(amt) => {
+                    last_change = Some(last_change.map_or(*amt, |a: ir::Offset| a + *amt));
+                }
+                IR::Getch(off) => {
+                    ret.push(IR::Getch(off + last_change.unwrap_or(0)));
+                }
+                IR::Putch(off) => {
+                    ret.push(IR::Putch(off + last_change.unwrap_or(0)));
+                }
+                IR::Add(off, amt) => {
+                    ret.push(IR::Add(off + last_change.unwrap_or(0), *amt));
+                }
+                _ => {
+                    if let Some(amt) = last_change {
+                        if amt != 0 {
+                            ret.push(IR::PtrChange(amt));
+                        }
+                        last_change = None;
                     }
-                    last_change = None;
-                }
 
-                if let IR::Loop(inner) = ir {
-                    ret.push(IR::Loop(compress_changes(inner)));
-                } else {
-                    ret.push(ir.clone());
+                    if let IR::Loop(inner) = ir {
+                        ret.push(IR::Loop(recur(inner, true)));
+                    } else {
+                        ret.push(ir.clone());
+                    }
                 }
             }
         }
-    }
-    if let Some(amt) = last_change {
-        if amt != 0 {
-            ret.push(IR::PtrChange(amt));
+        if let Some(amt) = last_change {
+            if preserve_change && amt != 0 {
+                ret.push(IR::PtrChange(amt));
+            }
         }
-    }
 
-    ret
+        ret
+    }
+    recur(irs, false)
 }
 
 fn simplify_loop(ins: &IR) -> IR {
@@ -98,9 +104,9 @@ fn simplify_loop(ins: &IR) -> IR {
                 }
                 ret_inner.push(IR::SimpleLoop(*d, inner.clone()));
             }
-            IR::AddMul(off, amt) => {
-                assert_ne!(*off, -ptr_change); // Too lazy to think through implications
-                ret_inner.push(IR::AddMul(*off, *amt));
+            IR::AddMul(dst_off, amt) => {
+                assert_ne!(*dst_off, -ptr_change); // Too lazy to think through implications
+                ret_inner.push(IR::AddMul(*dst_off, *amt));
             }
         }
     }
@@ -188,26 +194,38 @@ fn collapse_consts(irs: &Vec<IR>) -> Vec<IR> {
                     }
                 }
                 IR::AddMul(dst_off, amt) => {
-                    let init = match state
+                    let init = state
                         .get(&(idx + off + dst_off))
-                        .unwrap_or(&Value::Const(0))
-                    {
-                        Value::Add(amt) => {
-                            ret.push(IR::Add(*dst_off, *amt));
-                            ret.push(i.clone());
-                            continue;
+                        .unwrap_or(&Value::Const(0));
+                    let multiplier = state.get(&(idx + off)).unwrap_or(&Value::Const(0));
+
+                    if let (Value::Const(i), Value::Const(m)) = (init, multiplier) {
+                        state.insert(idx + off + *dst_off, Value::Const(i + m * amt));
+                        continue;
+                    }
+
+                    match multiplier {
+                        Value::Const(i) => {
+                            ret.push(IR::MovImm(0, *i));
                         }
-                        Value::Const(amt) => amt,
-                    };
-                    let multiplier = match state.get(&(idx + off)).unwrap_or(&Value::Const(0)) {
-                        Value::Add(amt) => {
-                            ret.push(IR::Add(0, *amt));
-                            ret.push(i.clone());
-                            continue;
+                        Value::Add(i) => {
+                            if *i != 0 {
+                                ret.push(IR::Add(0, *i));
+                            }
                         }
-                        Value::Const(amt) => amt,
-                    };
-                    state.insert(*dst_off, Value::Const(init + multiplier * amt));
+                    }
+                    match init {
+                        Value::Const(i) => {
+                            ret.push(IR::MovImm(*dst_off, *i));
+                        }
+                        Value::Add(i) => {
+                            if *i != 0 {
+                                ret.push(IR::Add(*dst_off, *i));
+                            }
+                        }
+                    }
+                    ret.push(i.clone());
+                    state.insert(idx + off + *dst_off, Value::Add(0));
                 }
                 IR::SimpleLoop(..) => {
                     match state.get(&(idx + off)).unwrap_or(&Value::Const(0)) {
@@ -248,7 +266,11 @@ fn collapse_consts(irs: &Vec<IR>) -> Vec<IR> {
                 },
                 IR::Putch(put_off) => {
                     match state.get(&(idx + off + put_off)) {
-                        Some(Value::Add(amt)) => ret.push(IR::Add(*put_off, *amt)),
+                        Some(Value::Add(amt)) => {
+                            if *amt != 0 {
+                                ret.push(IR::Add(*put_off, *amt))
+                            }
+                        }
                         Some(Value::Const(amt)) => ret.push(IR::MovImm(*put_off, *amt)),
                         None => {}
                     }
@@ -353,4 +375,103 @@ pub fn optimize(prog: &IRProgram) -> IRProgram {
     let irs = remove_unread_stores(&irs);
     let irs = compress_changes(&irs);
     IRProgram(irs)
+}
+
+mod test {
+    #![allow(dead_code)]
+    use super::*;
+    fn lp(inner: Vec<IR>) -> IR {
+        IR::Loop(inner)
+    }
+    fn pc(amt: ir::Offset) -> IR {
+        IR::PtrChange(amt)
+    }
+    fn a(off: ir::Offset, amt: ir::Value) -> IR {
+        IR::Add(off, amt)
+    }
+    fn put(off: ir::Offset) -> IR {
+        IR::Putch(off)
+    }
+    fn get(off: ir::Offset) -> IR {
+        IR::Getch(off)
+    }
+    fn sl(delta: ir::Value, inner: Vec<IR>) -> IR {
+        IR::SimpleLoop(delta, inner)
+    }
+    fn am(off: ir::Offset, delta: ir::Value) -> IR {
+        IR::AddMul(off, delta)
+    }
+    fn mi(off: ir::Offset, imm: ir::Value) -> IR {
+        IR::MovImm(off, imm)
+    }
+
+    #[test]
+    fn test_compress_changes() {
+        assert_eq!(
+            compress_changes(&vec![lp(vec![pc(1), pc(1), pc(1)])]),
+            vec![lp(vec![pc(3)])]
+        );
+        assert_eq!(compress_changes(&vec![pc(1), pc(-1), pc(1)]), vec![]);
+        assert_eq!(compress_changes(&vec![pc(1), pc(-1)]), vec![]);
+        assert_eq!(
+            compress_changes(&vec![pc(7), a(0, 1), pc(-1)]),
+            vec![a(7, 1)]
+        );
+        assert_eq!(compress_changes(&vec![pc(1), get(0), pc(-1)]), vec![get(1)]);
+        assert_eq!(compress_changes(&vec![pc(1), put(0), pc(-1)]), vec![put(1)]);
+    }
+
+    #[test]
+    fn test_simplify() {
+        assert_eq!(simplify_loop(&lp(vec![])), sl(0, vec![]));
+        assert_eq!(simplify_loop(&lp(vec![a(0, 1)])), sl(1, vec![]));
+        assert_eq!(
+            simplify_loop(&lp(vec![a(0, 1), pc(1)])),
+            lp(vec![a(0, 1), pc(1)])
+        );
+        assert_eq!(
+            simplify_loop(&lp(vec![a(0, 1), pc(1), a(0, 2), pc(-1)])),
+            sl(1, vec![pc(1), a(0, 2), pc(-1)])
+        );
+    }
+
+    #[test]
+    fn test_remove_unread_stores() {
+        // assert_eq!(remove_unread_stores(&vec![get(1), mi(0, 1), am(1, 5), put(1)]), vec![]);
+    }
+
+    #[test]
+    fn test_collapse_consts() {
+        assert_eq!(
+            remove_unread_stores(&collapse_consts(&vec![
+                mi(1, 5),
+                mi(0, 1),
+                am(1, 5),
+                put(1)
+            ])),
+            vec![mi(1, 10), put(1)]
+        );
+    }
+
+    fn optimize_code(code: &str) -> Vec<IR> {
+        dbg!(code);
+        let ap = crate::parser::Parser::parse(code).unwrap();
+        let ip = crate::ir::IRProgram::from_ast_program(&ap);
+        let ip = optimize(&ip);
+        ip.0
+    }
+
+    #[test]
+    fn test_e2e() {
+        //assert_eq!(optimize_code("++>++<++>.>[]"), vec![mi(1, 2), put(1)]);
+        //assert_eq!(optimize_code("+++++[->-----<]>."), vec![mi(1, -25), put(1)]);
+        assert_eq!(
+            optimize_code(">,<++[->+<]>."),
+            vec![get(1), mi(0, 2), am(1, 1), put(1)]
+        );
+        assert_eq!(
+            optimize_code(">,<+++++[->-----<]>."),
+            vec![get(1), mi(0, 5), am(1, -5), put(1)]
+        );
+    }
 }
