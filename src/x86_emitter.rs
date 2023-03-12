@@ -5,10 +5,10 @@ pub struct X86Emitter {
 }
 
 impl X86Emitter {
-    pub fn emit(prog: &IRProgram, nostdlib: bool) {
+    pub fn emit(prog: &IRProgram, nostdlib: bool, mem_size: usize) {
         let mut e = Self { label_count: 0 };
         println!(".section .bss");
-        println!("arr: .skip 30000");
+        println!("arr: .skip {}", mem_size);
         println!(".text");
         if nostdlib {
             println!("putch:");

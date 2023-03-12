@@ -31,6 +31,12 @@ struct Args {
     #[arg(long, value_enum, default_value = "x86_64")]
     arch: Arch,
 
+    #[arg(short = 'O', default_value = "1")]
+    opt_level: i32,
+
+    #[arg(short, long, default_value = "30000")]
+    mem_size: usize,
+
     path: Option<std::path::PathBuf>,
 }
 
@@ -59,20 +65,25 @@ fn main() -> ExitCode {
     };
 
     let ir_prog = ir::IRProgram::from_ast_program(&ast_prog);
+
+    let ir_prog = if args.opt_level == 0 {
+        ir_prog
+    } else {
+        optimize::optimize(&ir_prog)
+    };
+
     if args.eval {
         eval::eval(&ir_prog);
         return ExitCode::SUCCESS;
     }
-
-    let ir_prog = optimize::optimize(&ir_prog);
     if args.explore {
         println!("{:#?}", ir_prog);
         return ExitCode::SUCCESS;
     }
     match args.arch {
-        Arch::X86_64 => x86_emitter::X86Emitter::emit(&ir_prog, args.nostdlib),
-        Arch::RiscV => riscv_emitter::RiscVEmitter::emit(&ir_prog, args.nostdlib),
-        Arch::C => c_emitter::CEmitter::emit(&ir_prog, args.nostdlib),
+        Arch::X86_64 => x86_emitter::X86Emitter::emit(&ir_prog, args.nostdlib, args.mem_size),
+        Arch::RiscV => riscv_emitter::RiscVEmitter::emit(&ir_prog, args.nostdlib, args.mem_size),
+        Arch::C => c_emitter::CEmitter::emit(&ir_prog, args.nostdlib, args.mem_size),
     }
     return ExitCode::SUCCESS;
 }

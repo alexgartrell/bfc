@@ -3,10 +3,10 @@ use crate::ir::{IRProgram, IR};
 pub struct CEmitter {}
 
 impl CEmitter {
-    pub fn emit(prog: &IRProgram, nostdlib: bool) {
+    pub fn emit(prog: &IRProgram, nostdlib: bool, mem_size: usize) {
         let mut e = Self {};
         println!("#include <stdio.h>");
-        println!("char arr[3000];");
+        println!("char arr[{}];", mem_size);
         println!("int idx = 0;");
         println!("int main() {{");
 
